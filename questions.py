@@ -21,13 +21,24 @@ Swap them for your own if you like. Keep five of them either way: criterion 3
 names a target of "4 of 5", and four of three is not a thing.
 """
 
+# Each of these has one right answer sitting in one place in the corpus, and
+# `expects` is the exact phrase that answer has to contain.
+#
+# The first three are deliberately the risky kind: Kestrel Commons has seven
+# sibling dining halls and Morrow House seven sibling residence buildings,
+# written to the same template with different numbers, so a wrong-building
+# answer is the failure criterion 5 is watching for. Each `expects` here is a
+# figure that appears in only one building's documents, so a plausible answer
+# about the wrong building still scores as a miss. The last two are topics that
+# exist in exactly one document, which is the failure criterion 1 is watching
+# for.
 QUESTIONS = [
     # {"question": "...", "expects": "..."},
-    {"question": "When is the best time to visit the library?", "expects": "best time to visit the library"},
-    {"question": "What are the operating hours of the campus bookstore?", "expects": "operating hours"},
-    {"question": "How do I access the online course materials?", "expects": "access online course materials"},
-    {"question": "What is the policy on late assignments?", "expects": "policy on late assignments"},
-    {"question": "Where can I find information about student organizations?", "expects": "student organizations"},
+    {"question": "How long is the wait at Kestrel Commons between 12:15 and 1:00?", "expects": "20 to 25 minutes"},
+    {"question": "How much cheaper is Morrow House than the other housing tiers?", "expects": "$900"},
+    {"question": "How many hours a week outside class should I expect for CS 210?", "expects": "8 to 10 hours"},
+    {"question": "How late in the term can I declare a course pass/fail?", "expects": "week eight"},
+    {"question": "When are the health centre's walk-in hours?", "expects": "8am to 11am"},
 ]
 
 # Questions from a different world entirely. Your gate should refuse all five.

@@ -40,10 +40,12 @@ TOP_K = 5               # how many chunks to pull back per question
 #
 # LOWER IS BETTER: 0.3 is a close match, 0.9 is unrelated.
 #
-# 0.6 is a reasonable starting point, not a right answer. Milestone 4 has you
-# measure your own two groups of distances and put the cutoff in the gap.
-# Most corpora land somewhere between 0.45 and 0.75.
-THRESHOLD = 0.6
+# Measured in Milestone 4. My five in-corpus questions came back 0.117 to 0.235;
+# the five in OUT_OF_SCOPE came back 0.787 to 0.923. Nothing lands in between,
+# so the gap is wide and 0.5 sits near the middle of it: about double my worst
+# real question, which leaves slack for one phrased worse than my five, and
+# still 0.29 clear of my closest out-of-corpus question.
+THRESHOLD = 0.5
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

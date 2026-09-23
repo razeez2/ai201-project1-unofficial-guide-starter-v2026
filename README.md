@@ -116,30 +116,82 @@ in my fourth acceptance criterion.
 
 ## Sample Answer
 
-<!-- One complete question and answer, pasted as text, with the source line
-     visible. Milestone 4. -->
-
-**Question:**
+**Question:** How long is the wait at Kestrel Commons between 12:15 and 1:00?
 
 **Answer:**
 
 ```
+  (best distance 0.173, cutoff 0.5)
+
+The wait at Kestrel Commons between 12:15 and 1:00 is 20 to 25 minutes.
+
+Source: `dining_kestrel_commons.txt` (and `dining_kestrel_commons_followup.txt`)
+
+Sources retrieved: dining_halden_hall_followup.txt, dining_kestrel_commons.txt,
+dining_kestrel_commons_followup.txt, dining_the_ridgeway_cafe_followup.txt
 ```
 
-**My relevance cutoff:**
+Worth noting what the "Sources retrieved" line shows: two of the five chunks
+handed to the model were about *other* dining halls — Halden Hall and The
+Ridgeway Café, whose posts use the same sentences with different numbers. The
+model used neither. That's the failure my fifth criterion is watching for, and
+on this question it didn't happen.
 
-<!-- The number you set in config.py, and how you got there.
+And the refusal path, same command:
 
-     You ran five questions your corpus covers and the five in OUT_OF_SCOPE
-     that it clearly doesn't, and wrote down the best distance for each. What
-     did those two groups look like? Where was the gap? Put the actual numbers
-     here — the table below wants all ten rows.
+```
+$ python app.py ask "What is the capital of Mongolia?"
+  (best distance 0.787, cutoff 0.5)
 
-     Milestone 4. -->
+I don't have enough information about that.
+
+0 model calls this session
+```
+
+**My relevance cutoff:** 0.5
+
+I ran all ten questions through retrieval and took the best distance for each.
+The two groups came out nowhere near each other — everything my corpus covers
+landed between 0.117 and 0.235, and everything it doesn't landed between 0.787
+and 0.923. That's a gap of more than half the scale with nothing in it, so the
+exact number matters less than I expected it to. I put the cutoff at 0.5:
+roughly double my worst real question, which leaves slack for one phrased more
+vaguely than my five, and still 0.29 clear of my closest out-of-corpus question.
+At this setting the gate passes all five real questions and refuses all five
+others.
 
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| When are the health centre's walk-in hours? | yes | 0.117 |
+| How many hours a week outside class should I expect for CS 210? | yes | 0.162 |
+| How long is the wait at Kestrel Commons between 12:15 and 1:00? | yes | 0.173 |
+| How late in the term can I declare a course pass/fail? | yes | 0.215 |
+| How much cheaper is Morrow House than the other housing tiers? | yes | 0.235 |
+| What is the capital of Mongolia? | no | 0.787 |
+| Who won the 1994 World Cup? | no | 0.847 |
+| What is the recommended dosage of ibuprofen for a headache? | no | 0.849 |
+| How do I write a for loop in Rust? | no | 0.860 |
+| How do I change the oil in a diesel engine? | no | 0.923 |
+
+I had predicted in criteria.md that the ibuprofen question would be the one to
+slip through, because I do have a `health_center.txt` document. It came back at
+0.849 — the third *furthest* of the ten — and its nearest chunk was
+`money_textbooks.txt`, not the health centre at all. So the prediction was
+wrong, and wrong in a useful way: the embedding model is matching on what a
+question is *about*, not on shared vocabulary like "health". Asking for a drug
+dosage isn't close to a document about walk-in hours just because both are
+medical.
+
+**Top-k:** left at 5. The correct chunk came back first for all three questions
+I inspected, so there was nothing to fix by widening it, and on CS 210 the
+second-nearest chunk was already the STAT 150 workload post — a different course
+with the same sentence shape. Pulling back more would have added more of those.
+
+**Grounding instruction:** left as the starter wrote it. I checked it with
+`python app.py ask "..." --show-prompt`. It already says to use only the
+supplied documents, to say so when they don't cover the question, and to name
+the file — and my answers aren't drifting past the sources, so there was nothing
+to tighten.
 
 ## How I Used AI
 
