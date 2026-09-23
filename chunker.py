@@ -22,6 +22,7 @@ to it, write down what you saw, and move on. That's a real observation about
 your pipeline, not giving up.
 """
 
+import re
 from dataclasses import dataclass
 
 import config
@@ -80,24 +81,65 @@ def fallback_split(
     return chunks
 
 
+PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
+
+
 def split_documents(documents: list[Document]) -> list[Chunk]:
     """
-    Split documents into chunks. ⚠️ REPLACE THE BODY OF THIS IN MILESTONE 3.
+    Split on paragraph breaks, and keep the document's title line on every piece.
 
-    Right now it just calls the fallback. That is the plain, generic behaviour
-    the brief is talking about.
+    Every post in `campus_life` is a title line, a blank line, then two or three
+    paragraphs that answer different questions. `housing_aldridge_hall_laundry`
+    says what the machines cost in one paragraph and when to avoid the queue in
+    the next; those are two questions, so they are two chunks.
 
-    When you write your own strategy, set `produced_by` to
-    "chunker.py::split_documents" so your README's Sample Chunks section names
-    the right function. `app.py chunks` prints that string for you.
+    The title goes back onto each piece because the posts are near-duplicates of
+    one another — eight dining halls and eight residence buildings written to the
+    same template. On its own, "Best time to do laundry here is Tuesday" doesn't
+    say which building "here" is, and there are seven other buildings it could
+    plausibly be retrieved for.
 
-    Things worth thinking about before you write any code:
-      - Are your documents short posts or long guides?
-      - Is the useful information in one sentence, or spread over a paragraph?
-      - Would splitting on paragraph breaks keep more thoughts intact than
-        splitting on a character count?
+    A character count can't see any of that. It cuts 12 of the 88 posts and
+    leaves the rest alone, and where it does cut it lands mid-sentence.
     """
-    return fallback_split(documents)
+    chunks: list[Chunk] = []
+
+    for doc in documents:
+        blocks = [b.strip() for b in PARAGRAPH_BREAK.split(doc.text) if b.strip()]
+        if not blocks:
+            continue
+
+        title, bodies = blocks[0], blocks[1:]
+
+        # A document with nothing under its title is still one chunk — better a
+        # short chunk than a dropped document.
+        pieces = [f"{title}\n\n{body}" for body in bodies] or [title]
+
+        index = 0
+        for piece in pieces:
+            # No paragraph in this corpus comes close to a full window, but
+            # other corpora have long ones. Rather than emit a single enormous
+            # chunk, hand those back to the fixed-size splitter.
+            if len(piece) > config.CHUNK_SIZE:
+                parts = [
+                    c.text
+                    for c in fallback_split([Document(source=doc.source, text=piece)])
+                ]
+            else:
+                parts = [piece]
+
+            for part in parts:
+                chunks.append(
+                    Chunk(
+                        text=part,
+                        source=doc.source,
+                        index=index,
+                        produced_by="chunker.py::split_documents",
+                    )
+                )
+                index += 1
+
+    return chunks
 
 
 def describe(chunks: list[Chunk]) -> str:

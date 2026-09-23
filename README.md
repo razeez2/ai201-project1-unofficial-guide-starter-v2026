@@ -29,54 +29,90 @@
 
 ## Chunking Strategy
 
-**Chunk size:**
-**Overlap:**
+**Chunk size:** One paragraph, plus the document's title line. No fixed
+character count — in practice this comes out at 63 to 397 characters, median
+147.
+**Overlap:** No character overlap. The title line is the only text repeated
+between chunks from the same document.
 
-<!-- What about YOUR documents made you pick these numbers? Short posts and
-     long sectioned guides don't want the same chunking, and "800 seemed
-     reasonable" earns nothing. Point at something you noticed when you read
-     the documents in Milestone 1.
+Every post in `campus_life` has the same shape: a title line, a blank line,
+then two or three paragraphs. Reading them in Milestone 1, the paragraphs turned
+out to be answering *different questions*. `housing_aldridge_hall_laundry.txt`
+gives machine prices in one paragraph and the best time to go in the next;
+`dining_kestrel_commons.txt` gives wait times in one and opening hours in the
+next. So the blank lines already mark where one thought ends, and I split on
+those instead of on a character count.
 
-     If you changed your mind partway through, say so and say why. That's worth
-     more than pretending you got it right first time.
+I put the title back on every chunk because my documents are near-duplicates of
+each other — eight dining halls, eight residence buildings and ten courses, all
+written to the same template. Split plainly, the second chunk of the laundry
+post reads "Best time to do laundry here is Tuesday or Wednesday morning" and
+never says which building "here" is, so it could be retrieved for any of the
+other seven.
 
-     Milestone 3. -->
+I considered a fixed 400-character window first, on the reasoning that it was
+near my average document length. I tried it and dropped it: only 12 of my 88
+posts are longer than 400 characters, so it left 86% of the corpus untouched,
+and where it did cut it landed mid-sentence and produced an 18-chunk tail of
+fragments — the shortest was 2 characters. That would have broken my own fourth
+acceptance criterion straight away.
+
+This took the corpus from 88 chunks (the starter never split anything, because
+nothing reaches 800 characters) to 183.
 
 ## Sample Chunks
 
-<!-- Five chunks, pasted as text. Label each one and name the file it came from
-     AND the function that produced it — the grader checks your code against
-     what you claim here.
+Five chunks from `python app.py chunks -n 5`, spread across the corpus.
 
-     `python app.py chunks -n 5` prints all three for you. Copy them straight
-     across.
-
-     Milestone 3. -->
-
-**Chunk 1** — source: `` — produced by: ``
+**Chunk 1** — source: `admin_add_drop_deadline.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+On the add/drop deadline
+
+You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
 ```
 
-**Chunk 2** — source: `` — produced by: ``
+**Chunk 2** — source: `course_cs_340_exams.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+CS 340 Databases — assessment
+
+Start the term project in week three, not week eight; everyone learns this the hard way.
 ```
 
-**Chunk 3** — source: `` — produced by: ``
+**Chunk 3** — source: `course_phys_130_workload.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+Workload for PHYS 130 Mechanics
+
+People keep asking so: 7 hours a week, plus 3 on lab weeks. That's real time, not optimistic time.
 ```
 
-**Chunk 4** — source: `` — produced by: ``
+**Chunk 4** — source: `dining_verrill_street_grill_followup.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+Re: Verrill Street Grill
+
+Also worth saying: one register, so the queue is a single line no matter how busy. Nobody tells you this at orientation.
 ```
 
-**Chunk 5** — source: `` — produced by: ``
+**Chunk 5** — source: `housing_morrow_house.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+Morrow House — what it's actually like
+
+The good: cheapest housing tier by about $900 a year, and the singles are real singles.
 ```
+
+**Reading them back:** all five answer a question on their own. Chunks 2, 4 and
+5 are the ones that make the case for gluing the title on — "Start the term
+project in week three" and "one register, so the queue is a single line" would
+both be unusable without the line above them, because I have ten courses and
+eight dining halls whose posts are otherwise worded almost identically. Chunk 2
+is the shortest of the five at 119 characters and still answers "when should I
+start the CS 340 project?" on its own. Across the whole corpus the shortest
+chunk this produces is 63 characters, which clears the 50-character floor I set
+in my fourth acceptance criterion.
 
 ## Sample Answer
 
