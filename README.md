@@ -21,11 +21,17 @@
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
+This answers questions about student life at one university, using the
+`campus_life` corpus — 88 short posts written by students about dining halls,
+residence buildings, courses, and admin procedures like the pass/fail option and
+the add/drop deadline. You ask it something specific, like how long the lunch
+queue is at Kestrel Commons or how many hours a week CS 210 takes, and it finds
+the posts that cover it and answers from those, naming the file it used.
 
-     Milestone 5. -->
+It only knows what's in those 88 posts. If you ask it something they don't cover
+it says "I don't have enough information about that" rather than guessing — it
+checks how close the retrieved posts actually are before it lets the model see
+them at all.
 
 ## Chunking Strategy
 
@@ -195,18 +201,34 @@ to tighten.
 
 ## How I Used AI
 
-<!-- Two specific moments. For each: what you asked for, what came back, and
-     what you changed about it.
+**1. Checking whether my acceptance criteria actually said anything.** I had
+written criterion 4 as "the answer the system produces is one sentence long" and
+criterion 5 as "the answer directly addresses what was asked," and I asked Claude
+whether those were measurable. It said both were too vague to check twice and got
+the same result, and that criterion 4 was about answers when the section asks for
+something about chunks. What I was really worried about was a chunk being so
+short it was just the title of the post, so I asked for a minimum length instead.
+Rather than suggest a number, it measured my corpus: my title lines top out at 47
+characters and my body paragraphs start at 36, so 50 separates them and only
+costs me four real paragraphs out of 183. I went with 50. 
 
-     "I asked Claude to write the chunking function from my notes. It ignored
-     the overlap, so I added that myself" is the level of detail we're after.
-     "I used AI to help me code" is not.
-
-     Milestone 5. -->
-
-**1.**
-
-**2.**
+**2. Picking a chunk size, and being talked out of my first answer.** I was going
+to set the chunk size to 400 characters, and my reason was that it was close to
+my average document length. I asked Claude to sanity-check that before I coded
+it. It ran the number against my actual files and the reason fell apart: only 12
+of my 88 posts are longer than 400 characters, so the rule would have left 86% of
+the corpus untouched, and where it did cut it landed mid-sentence and produced
+fragments like "out from each other." The shortest chunk it made was 2
+characters, which would have broken the criterion 4 I'd just written. The bigger
+thing I took from it is that I was asking the wrong kind of question — my posts
+already mark where one thought ends with a blank line, so I should split on that
+rather than on any character count. What I changed here was my own plan rather
+than the code: I dropped the 400-character idea completely. The suggestion that
+came with it was to glue the title line onto every piece, and I checked that
+against a real file before accepting it — `housing_aldridge_hall_laundry.txt`
+splits into a paragraph that says "Best time to do laundry **here** is Tuesday,"
+which names no building, and I have seven other dorms with near-identical
+posts.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
