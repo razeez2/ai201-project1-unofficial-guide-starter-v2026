@@ -242,17 +242,95 @@ posts.
 
      Milestone 1. -->
 
+Evidence: `results/run_2026-09-23_2022_before.md`, produced by
+`run_eval.py::main` — five questions, three runs each, cache off.
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. No chunk shorter than 50 characters | 0 chunks under 50 | 0 of 183 | 0 of 183 | 0 of 183 | MET |
+| 5. Answer addresses what was asked | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-<!-- Underneath, paste the REAL output for each criterion from one of your
-     runs — the actual text your system produced, not a description of it.
-     Name the file and function that produced it. -->
+`scorer.py` doesn't exist, so the run columns came out blank and I judged all
+fifteen answers by reading them.
+
+Criteria 3 and 4 repeat across the three columns for the same reason: neither
+depends on the model. The gate is a comparison against a fixed number, and the
+chunks are built once at index time. Criteria 1, 2 and 5 could have moved
+between runs and didn't.
+
+The three runs were genuinely separate rather than one cached answer repeated —
+the wording shifts even though the facts don't. Run 1 opens "The wait time at
+Kestrel Commons…", run 3 opens "The wait at Kestrel Commons…".
+
+### Criterion 1 — retrieved chunk contains the answer
+
+From `run_eval.py::main`, retrieval by `store.py::search` over chunks from
+`chunker.py::split_documents`. Kestrel Commons, run 1:
+
+```
+- Best distance: 0.1733 (passed the gate)
+- Sources retrieved: dining_halden_hall_followup.txt, dining_kestrel_commons.txt, dining_kestrel_commons_followup.txt, dining_the_ridgeway_cafe_followup.txt
+
+The wait time at Kestrel Commons between 12:15 and 1:00 is 20 to 25 minutes. 
+
+Source: `dining_kestrel_commons.txt` and `dining_kestrel_commons_followup.txt`
+```
+
+Both Kestrel chunks are in the retrieved set, and the "20 to 25 minutes" I
+wrote into `questions.py` as the expected answer is in them. Same for the other
+four questions on all three runs.
+
+### Criterion 2 — every answer names a source
+
+Same file. CS 210, run 2 — the model names the two files in prose rather than
+on a Source line, which I counted as naming a source:
+
+```
+For CS 210, you should expect 8 to 10 hours a week outside of class. This is stated in *course_cs_210.txt* and *course_cs_210_workload.txt*.
+```
+
+All fifteen answers named at least one file. The format varied between runs —
+a `Source:` line, a parenthesis, italics — but the filename was always there.
+
+### Criterion 3 — the gate stops out-of-corpus questions
+
+From `run_eval.py::check_out_of_scope`, decided by `gate.py::check` at a cutoff
+of 0.5. One deterministic pass:
+
+```
+| Out-of-scope question                                       | Best distance | Gate    |
+| What is the capital of Mongolia?                            | 0.787         | refused |
+| How do I change the oil in a diesel engine?                 | 0.923         | refused |
+| Who won the 1994 World Cup?                                 | 0.847         | refused |
+| What is the recommended dosage of ibuprofen for a headache? | 0.849         | refused |
+| How do I write a for loop in Rust?                          | 0.860         | refused |
+```
+
+Refused 5 of 5, and none of them came close to the cutoff — the nearest was
+0.787 against a threshold of 0.5.
+
+### Criterion 4 — no chunk shorter than 50 characters
+
+From `chunker.py::describe`, on the chunks that `chunker.py::split_documents`
+produced and that this whole run was served from:
+
+```
+183 chunks, 167 characters on average (shortest 63, longest 397), produced by chunker.py::split_documents
+```
+
+Shortest is 63, so nothing is under 50.
+
+### Criterion 5 — the answer addresses what was asked
+
+The Kestrel answer under criterion 1 is the evidence here too. Its
+"Sources retrieved" line shows the model was handed chunks from Halden Hall and
+The Ridgeway Café alongside the two Kestrel ones — different dining halls
+written to the same template with different numbers. It used neither, and
+answered about the hall I asked about. That was the failure this criterion
+exists to catch.
 
 ## Verdicts
 
