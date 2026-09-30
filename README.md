@@ -532,27 +532,99 @@ dorm is the cheapest?" needs all seven housing documents and gets four.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** Hybrid search. `store.py::search` now runs a BM25 keyword
+ranking over the same 183 chunks alongside the embedding ranking and fuses the
+two with reciprocal rank fusion (`store.py::_fuse_with_keywords`). One change,
+behind one flag — `config.HYBRID_SEARCH` — so I can run the identical test both
+ways.
 
-**Why I picked it:**
+Each result keeps its true cosine distance, so `gate.py::check` still thresholds
+on the quantity my 0.5 cutoff was calibrated against. Without that, fusing
+scores would have left the gate comparing 0.5 to a number that no longer means
+anything, and criterion 3's measurement would have broken as a side effect.
 
-<!-- Connect it to a specific diagnosis above in one sentence. If you can't,
-     you picked a fix because it sounded impressive. -->
+**Why I picked it:** My diagnosis found that for "which dorm is the cheapest?"
+the chunk containing the literal word *cheapest* ranked 11th of 183 while seven
+interchangeable "The good: the most X on campus" sibling chunks took the top
+places — meaning alone could not separate near-duplicates, so I added the one
+signal that can, the exact word.
+
+I wrote down before building that this might not work, for three reasons: my
+five criteria were already at 5/5 so the run log couldn't move; BM25 can't touch
+the dining-hall case, where "shortest wait" shares no vocabulary with "rarely
+more than 8 minutes" or "no queue"; and my corpus is templated, so every sibling
+shares boilerplate and the distinguishing content is numbers. Two of those three
+turned out to be right.
 
 ### Run Log — After
 
-<!-- Same format, same five criteria, three runs each.
-     `python run_eval.py --label after` -->
+Evidence: `results/run_2026-09-29_2109_after.md`, produced by `run_eval.py::main`
+with `config.HYBRID_SEARCH = True`.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. No chunk shorter than 50 characters | 0 chunks under 50 | 0 of 183 | 0 of 183 | 0 of 183 | MET |
+| 5. Answer addresses what was asked | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-**Did it help?**
+Identical to the before table, cell for cell.
+
+**Did it help?** Partly. It fixed the exact thing my diagnosis named and made
+the other half of the same problem worse, and the run log shows none of it.
+
+**On my five criteria: no change at all.** 5/5 on every criterion on all three
+runs, before and after, with the same best distances to three decimal places
+(0.173, 0.235, 0.162, 0.215, 0.117). I predicted this before running it — the
+criteria were already at ceiling, so they had no room to record anything. That
+is a fact about my test set, not about the change.
+
+**On the failure it was built for: it worked.**
+
+```
+Which dorm is the cheapest?
+  before: correct chunk retrieved: False   (Morrow $900 ranked 11 of 183)
+  after : correct chunk retrieved: True
+```
+
+The word *cheapest* appears literally in that chunk, BM25 ranks it first on
+keywords, and fusion pulls it into the top 5 past the seven siblings that beat
+it on cosine distance. That is the mechanism I diagnosed, fixed by the signal I
+chose for it.
+
+**On the other cause, it backfired.** My diagnosis said comparison questions
+fail two ways — bad ranking among siblings, and top-5 not covering the full set
+being compared. Hybrid fixes the first by *spending* the second:
+
+| Question | Entities covered before | after |
+|---|---|---|
+| Which dorm is the cheapest? | 4 of 7 housing buildings | **2 of 7** |
+| Which dining hall has the shortest wait at lunch? | 4 of 7 dining halls | **2 of 7** |
+| How much is a wash and when should I go? | 4 buildings | 4 buildings |
+
+Five slots is five slots. Every chunk BM25 promotes displaces one the embedding
+chose, so coverage halved. On the dorm question the two it displaced were
+replaced partly by keyword noise — `money_textbooks.txt` and
+`admin_printing_quota.txt` share vocabulary with a question about cost without
+being about dorms at all. On the dining question the correct answer is a hall
+with **no queue**, which shares no words with "shortest wait", so BM25 had
+nothing to contribute and only cost coverage: it went from 4 halls to 2 and
+still doesn't retrieve the right one.
+
+**And it didn't touch my revised criterion 3.** "What are the operating hours of
+the campus bookstore?" still passes the gate — 0.341 before, 0.411 after — and
+still retrieves library hours. I expected that: the problem there is that cosine
+distance scores topical resemblance rather than entity identity, and adding
+keyword matching to the ranking doesn't change what the gate thresholds on.
+
+**What I'd conclude.** The change was correctly aimed and too small to be worth
+it on its own. Fusion re-ranks within a fixed budget of five chunks, and my real
+problem with comparison questions is that the budget is smaller than the number
+of things being compared. Hybrid search plus a larger `TOP_K` for questions that
+name a category rather than an instance is the thing I'd try next, and I'd want
+a criterion that measures entity coverage directly rather than inferring it from
+whether an answer looks right.
 
 <!-- Say plainly whether it did, and how you know. If it made things worse,
      say that — a change that backfired, honestly reported, earns full credit

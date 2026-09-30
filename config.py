@@ -35,6 +35,16 @@ CHUNK_OVERLAP = 120     # characters shared between neighbouring chunks
 
 TOP_K = 5               # how many chunks to pull back per question
 
+# Unit 2 improvement. False is the unit 1 behaviour: rank purely by embedding
+# distance. True adds a BM25 keyword search over the same chunks and fuses the
+# two rankings, so a chunk containing the exact word you asked about can reach
+# the model even when a dozen near-identical siblings score closer on meaning.
+#
+# The relevance gate still sees a true cosine distance either way — see
+# `store.py::search` — so the 0.5 cutoff below keeps the meaning it was
+# calibrated with.
+HYBRID_SEARCH = True
+
 # The relevance gate. If the best chunk is further away than this, the system
 # refuses to answer instead of handing the model thin material.
 #

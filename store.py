@@ -18,6 +18,7 @@ rest of the project if they were wrong:
 """
 
 import os
+import re
 import shutil
 from dataclasses import dataclass
 
@@ -199,9 +200,13 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
+    # Ask for every chunk when hybrid search is on: BM25 needs to see the whole
+    # collection, and the cosine distance of a chunk BM25 finds has to come from
+    # somewhere. 183 chunks is small enough that this costs nothing.
+    n_wanted = collection.count() if config.HYBRID_SEARCH else top_k
     raw = collection.query(
         query_embeddings=embed([question]),
-        n_results=min(top_k, collection.count()),
+        n_results=min(n_wanted, collection.count()),
     )
 
     results: list[Result] = []
@@ -217,7 +222,59 @@ def search(
                 produced_by=str(meta.get("produced_by", "unknown")),
             )
         )
-    return results
+
+    if not config.HYBRID_SEARCH:
+        return results
+
+    return _fuse_with_keywords(question, results, top_k)
+
+
+# ─── Hybrid search (unit 2 improvement) ──────────────────────────────────────
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _tokenise(text: str) -> list[str]:
+    return _WORD.findall(text.lower())
+
+
+def _fuse_with_keywords(
+    question: str, ranked: list[Result], top_k: int
+) -> list[Result]:
+    """
+    Re-rank embedding results by fusing them with a BM25 keyword ranking.
+
+    `ranked` is every chunk in the collection, nearest-first by cosine. This
+    scores the same chunks by keyword overlap, then combines the two orderings
+    with reciprocal rank fusion: each chunk scores 1/(60 + rank) in each list,
+    and the two are added. A chunk near the top of either list survives; a chunk
+    near the top of both wins.
+
+    Why this exists: my documents are near-duplicates of each other, so for
+    "which dorm is the cheapest?" seven interchangeable "The good: the most X on
+    campus" chunks all scored closer than the one that actually says "cheapest".
+    Meaning alone could not separate them. The exact word can.
+
+    Each Result keeps its real cosine distance, so `gate.py::check` still
+    thresholds on the same quantity it was calibrated against.
+    """
+    from rank_bm25 import BM25Okapi
+
+    if not ranked:
+        return ranked
+
+    bm25 = BM25Okapi([_tokenise(r.text) for r in ranked])
+    scores = bm25.get_scores(_tokenise(question))
+
+    K = 60  # the usual RRF constant; damps the top of either list dominating
+    fused: dict[int, float] = {}
+    for rank, i in enumerate(range(len(ranked))):          # cosine order
+        fused[i] = fused.get(i, 0.0) + 1.0 / (K + rank)
+    for rank, i in enumerate(sorted(range(len(ranked)), key=lambda j: -scores[j])):
+        fused[i] = fused.get(i, 0.0) + 1.0 / (K + rank)
+
+    best = sorted(fused, key=lambda i: -fused[i])[:top_k]
+    return [ranked[i] for i in best]
 
 
 def index_exists(corpus: str | None = None, variant: str = "default") -> bool:
