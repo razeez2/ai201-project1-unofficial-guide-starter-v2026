@@ -37,11 +37,11 @@ next. So the blank lines already mark where one thought ends, and I split on
 those instead of on a character count.
 
 I put the title back on every chunk because my documents are near-duplicates of
-each other — eight dining halls, eight residence buildings and ten courses, all
+each other — seven dining halls, seven residence buildings and nine courses, all
 written to the same template. Split plainly, the second chunk of the laundry
 post reads "Best time to do laundry here is Tuesday or Wednesday morning" and
 never says which building "here" is, so it could be retrieved for any of the
-other seven.
+other six.
 
 I considered a fixed 400-character window first, on the reasoning that it was
 near my average document length. I tried it and dropped it: only 12 of my 88
@@ -100,8 +100,8 @@ The good: cheapest housing tier by about $900 a year, and the singles are real s
 **Reading them back:** all five answer a question on their own. Chunks 2, 4 and
 5 are the ones that make the case for gluing the title on — "Start the term
 project in week three" and "one register, so the queue is a single line" would
-both be unusable without the line above them, because I have ten courses and
-eight dining halls whose posts are otherwise worded almost identically. Chunk 2
+both be unusable without the line above them, because I have nine courses and
+seven dining halls whose posts are otherwise worded almost identically. Chunk 2
 is the shortest of the five at 119 characters and still answers "when should I
 start the CS 340 project?" on its own. Across the whole corpus the shortest
 chunk this produces is 63 characters, which clears the 50-character floor I set
@@ -388,7 +388,19 @@ PASS   0.341  What are the operating hours of the campus bookstore?
 ```
 
 I have no bookstore document. The gate passes the question anyway and hands the
-model library opening hours. The revision is in `criteria.md` underneath the
+model library opening hours.
+
+**Stage and mechanism:** embedding. "Operating hours of the campus bookstore"
+and "Library hours during term" are the same *kind* of question — when is a
+campus facility open — and cosine distance scores that resemblance, which is why
+0.341 looks like a good match. Distance measures topical similarity, not whether
+the chunk is about the thing I named. The gate inherits that limitation exactly:
+`gate.py::check` compares one number against 0.5, so it can only ask "is the
+nearest chunk on a similar topic", never "is the nearest chunk about a
+bookstore". My Mongolia-and-Rust questions never exposed this because they
+aren't similar to anything in the corpus on any axis.
+
+The revision is in `criteria.md` underneath the
 original line: *of five questions about my own campus that my documents happen
 not to cover, the gate refuses at least 4.* That is harder than what I wrote
 first, not easier — the original target was met on the five questions it named,
@@ -429,10 +441,10 @@ Three different buildings, all with different prices, handed to the model at
 once, and nothing to tell it which one I live in.
 
 **The pattern, and it's one problem rather than several: my system does lookups
-well and comparisons badly.** The stage is retrieval. `store.py::search` returns
-the `TOP_K = 5` nearest chunks, and no question that compares N things can be
-answered from a subset of those N things. Two examples, both of which pass the
-relevance gate, so the system has no idea anything is wrong:
+well and comparisons badly.** Two examples, both of which pass the relevance
+gate, so the system has no idea anything is wrong. They look like the same
+failure and they are not — diagnosing them separately is what this section is
+for:
 
 ```
 Which dorm is the cheapest?
@@ -444,24 +456,69 @@ Which dorm is the cheapest?
     0.549  money_textbooks.txt
 ```
 
-The right answer is Morrow House, which is the cheapest tier by about $900 a
-year. It is not in the retrieved set at all. The system would answer this
-confidently, cite a real file, and be wrong — which is the exact failure the
-relevance gate exists to prevent and cannot catch, because the gate only asks
-"is the nearest chunk close enough", never "is anything missing".
+The right answer is Morrow House, the cheapest tier by about $900 a year. It is
+not in the retrieved set. The system would answer this confidently, cite a real
+file, and be wrong — the gate can't catch it, because the gate only asks "is the
+nearest chunk close enough", never "is anything missing".
+
+**Working backwards told me the stage, and it wasn't the one I assumed.** I
+re-ran the search over all 183 chunks to find where the correct chunk actually
+ranks:
+
+```
+Which dorm is the cheapest?
+  correct chunk is RANK 11 of 183, distance 0.630  (housing_morrow_house.txt)
+  rank 5 cutoff was distance 0.549
+```
+
+Not a near miss at rank 6 — rank 11, and at 0.630 it's beyond my 0.5 gate as
+well, so it would be refused even if it came back alone. The reason shows up in
+what *did* win:
+
+```
+ 1. 0.497  housing_tamsin_court.txt    The good: the most independent housing on campus...
+ 2. 0.503  housing_innisfree_hall.txt  The good: the shared-bathroom arrangement is the best compromise...
+ 3. 0.540  housing_old_brewhouse.txt   The good: the most characterful building on campus...
+ 4. 0.546  housing_aldridge_hall.txt   The bad: the elevator is out roughly one week per semester.
+...
+11. 0.630  housing_morrow_house.txt    The good: cheapest housing tier by about $900 a year...
+```
+
+**The stage is embedding, and the mechanism is that my chunks are too alike in
+form.** Every housing post has a "The good: the most X on campus" line, my
+chunker made each of those its own chunk, and "Which dorm is the cheapest?" is
+structurally a superlative claim about a dorm. So all seven siblings match the
+*shape* of the question almost equally — the top four sit inside 0.05 of each
+other — and the one that literally contains the word "cheapest" loses. Cosine
+distance is scoring sentence form over the specific attribute I asked about.
+
+That matters because it rules out the obvious fix. Raising `TOP_K` to 11 would
+retrieve this one chunk, but it doesn't make the ranking meaningful — it just
+widens a net over seven near-ties.
+
+The second example is a different story, and I had it wrong the first time:
 
 ```
 Which dining hall has the shortest wait at lunch?
-  gate: PASS  best 0.329
-    0.329  dining_pellew_dining_hall_followup.txt
-    0.337  dining_halden_hall_followup.txt
-    0.407  dining_north_kitchen_followup.txt
-    0.417  dining_the_ridgeway_cafe_followup.txt
-    0.432  dining_halden_hall.txt
+  correct chunk is RANK 2 of 183, distance 0.337  (dining_halden_hall_followup.txt)
+  also RANK 5, distance 0.432  (dining_halden_hall.txt)
 ```
 
-Five chunks covering four of my eight dining halls. Answering this correctly
-means comparing all eight.
+Halden Hall's "rarely more than 8 minutes" came back at rank 2. **Retrieval
+succeeded here.** But the five chunks cover only four of my seven dining halls,
+and two of the three it missed — The Atrium and North Kitchen — have no queue at
+all, which makes them the real answer. So the system can produce a plausible
+answer ("Halden Hall, rarely more than 8 minutes") from a genuinely retrieved,
+correctly cited chunk, and still be wrong, because it never saw the halls it
+needed to compare against. The stage here is retrieval, and the mechanism is
+coverage rather than ranking: a top-5 over seven entities cannot answer a
+question about all seven, no matter how good the ranking is.
+
+**So the pattern is one symptom with two causes.** Comparison questions fail
+either because the distinguishing chunk ranks low among near-identical siblings
+(embedding), or because top-5 can't cover the full set being compared
+(retrieval). Both are invisible to the gate, which measures the nearest chunk
+and never asks what's missing.
 
 **Which criterion I'd tighten, and to what.** Criterion 1. I'd keep the target
 at 4 of 5 and constrain the test set instead:
@@ -471,7 +528,7 @@ at 4 of 5 and constrain the test set instead:
 > that contains the answer.
 
 Same number, genuinely harder, and I already know it would have failed: "which
-dorm is the cheapest?" needs all eight housing documents and gets four.
+dorm is the cheapest?" needs all seven housing documents and gets four.
 
 ## The Improvement
 

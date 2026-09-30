@@ -24,8 +24,8 @@ names a target of "4 of 5", and four of three is not a thing.
 # Each of these has one right answer sitting in one place in the corpus, and
 # `expects` is the exact phrase that answer has to contain.
 #
-# The first three are deliberately the risky kind: Kestrel Commons has seven
-# sibling dining halls and Morrow House seven sibling residence buildings,
+# The first three are deliberately the risky kind: Kestrel Commons has six
+# sibling dining halls and Morrow House six sibling residence buildings,
 # written to the same template with different numbers, so a wrong-building
 # answer is the failure criterion 5 is watching for. Each `expects` here is a
 # figure that appears in only one building's documents, so a plausible answer

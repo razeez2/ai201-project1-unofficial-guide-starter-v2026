@@ -94,9 +94,9 @@ def split_documents(documents: list[Document]) -> list[Chunk]:
     the next; those are two questions, so they are two chunks.
 
     The title goes back onto each piece because the posts are near-duplicates of
-    one another — eight dining halls and eight residence buildings written to the
+    one another — seven dining halls and seven residence buildings written to the
     same template. On its own, "Best time to do laundry here is Tuesday" doesn't
-    say which building "here" is, and there are seven other buildings it could
+    say which building "here" is, and there are six other buildings it could
     plausibly be retrieved for.
 
     A character count can't see any of that. It cuts 12 of the 88 posts and
