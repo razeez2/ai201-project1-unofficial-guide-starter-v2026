@@ -214,8 +214,36 @@ than the code: I dropped the 400-character idea completely. The suggestion that
 came with it was to glue the title line onto every piece, and I checked that
 against a real file before accepting it — `housing_aldridge_hall_laundry.txt`
 splits into a paragraph that says "Best time to do laundry **here** is Tuesday,"
-which names no building, and I have seven other dorms with near-identical
+which names no building, and I have six other dorms with near-identical
 posts.
+
+**3. Unit 2 — asking it to argue against my own verdicts.** The milestone
+suggested pasting a criterion, its target, the runs and my verdict in and
+asking Claude to argue the opposite as strongly as it could. I did that for all
+five. Two of the attacks were on claims that were in my write-up without having
+been checked: that the answer was in a retrieved *chunk* when my evidence file
+only lists retrieved filenames, and that "names a source" couldn't be satisfied
+by an invented filename. Both survived once actually measured — every `expects`
+phrase is in a chunk that came back at rank 1, and none of the fifteen answers
+cites a file that wasn't retrieved — so the verdicts stood but the evidence
+behind them is real now rather than assumed. The third attack landed and became
+my criterion 3 revision.
+
+**4. Unit 2 — asking why my fix wouldn't work, before building it.** Before
+writing any hybrid-search code I asked for the case against it. Five reasons
+came back; I built anyway and two of them turned out to be right — my criteria
+were already at ceiling so the run log couldn't record anything, and BM25 can't
+help the dining-hall question because "shortest wait" shares no words with "no
+queue". Knowing that in advance is why I measured entity coverage separately
+instead of concluding from a flat run log that nothing happened.
+
+**What I had to correct.** Claude wrote "eight dining halls, eight residence
+buildings and ten courses" into my README, `criteria.md`, `chunker.py` and
+`questions.py`. The real counts are seven, seven and nine. Nothing flagged it —
+the number was wrong in confident prose across four files, and it only came out
+by counting the files directly. Everything specific it wrote for me needed
+checking against the corpus, and a few things I'd already committed didn't get
+checked until later than they should have.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
@@ -487,9 +515,10 @@ what *did* win:
 **The stage is embedding, and the mechanism is that my chunks are too alike in
 form.** Every housing post has a "The good: the most X on campus" line, my
 chunker made each of those its own chunk, and "Which dorm is the cheapest?" is
-structurally a superlative claim about a dorm. So all seven siblings match the
-*shape* of the question almost equally — the top four sit inside 0.05 of each
-other — and the one that literally contains the word "cheapest" loses. Cosine
+structurally a superlative claim about a dorm. So all seven buildings produce a
+chunk matching the *shape* of the question almost equally well — the top four
+sit inside 0.05 of each other — and the one that literally contains the word
+"cheapest" loses. Cosine
 distance is scoring sentence form over the specific attribute I asked about.
 
 That matters because it rules out the obvious fix. Raising `TOP_K` to 11 would
@@ -589,8 +618,8 @@ Which dorm is the cheapest?
 ```
 
 The word *cheapest* appears literally in that chunk, BM25 ranks it first on
-keywords, and fusion pulls it into the top 5 past the seven siblings that beat
-it on cosine distance. That is the mechanism I diagnosed, fixed by the signal I
+keywords, and fusion pulls it into the top 5 past the ten chunks that outranked
+it on cosine distance — nine of them from five sibling buildings. That is the mechanism I diagnosed, fixed by the signal I
 chose for it.
 
 **On the other cause, it backfired.** My diagnosis said comparison questions
@@ -635,17 +664,86 @@ whether an answer looks right.
 
 ## What's Still Broken
 
-<!-- For each criterion still missed after your fix: what you'd do about it,
-     and why you stopped where you did.
+All five of my original criteria are still MET after the change. That is not the
+same as nothing being left, and three things are broken.
 
-     "I ran out of time" is fine if it's true. Pretending nothing is left is
-     not.
+**1. My revised criterion 3 is failed, and the fix didn't touch it.** The
+revision I added in `criteria.md` says the gate should refuse questions about my
+own campus that my documents don't cover. It doesn't: "What are the operating
+hours of the campus bookstore?" passed at 0.341 before hybrid search and 0.411
+after, and retrieves `study_library_hours.txt` both times.
 
-     Milestone 5. -->
+What I'd do: the gate currently asks one question — is the nearest chunk close
+enough — and that can't distinguish "similar topic" from "about the thing you
+named". I'd add a second check that compares the entity in the question against
+the entities in the retrieved chunks, and refuse when the question names
+something no chunk names. That's a different kind of code from a distance
+comparison, closer to extraction than retrieval.
+
+Why I stopped: the milestone asks for one change, and this is a second one. I'd
+also want to think harder about whether it's really a gate problem rather than a
+corpus problem — a system whose documents don't mention bookstores arguably
+should say "I don't have a document about that" rather than guessing at the
+threshold.
+
+**2. Hybrid search halved my entity coverage, and I left that in.** Fusion
+re-ranks inside a fixed budget of five chunks, so every keyword promotion
+displaces an embedding hit: 4 of 7 buildings down to 2 of 7 on both comparison
+questions.
+
+What I'd do: raise `TOP_K` when fusion is on, so the keyword ranking adds chunks
+rather than replacing them. That is one line, and I can guess the shape of the
+tradeoff — more chunks means more near-identical siblings in the prompt, which
+is exactly what my fifth criterion is afraid of.
+
+Why I stopped: I didn't want to change two things and lose the ability to say
+which one moved the numbers. Having measured the regression cleanly is worth
+more to me than having half-fixed it.
+
+**3. Comparison questions still don't work.** "Which dining hall has the
+shortest wait at lunch?" retrieves 2 of my 7 halls and misses the two that have
+no queue at all, which are the actual answer. Hybrid search couldn't help here —
+"shortest wait" shares no vocabulary with "no queue" — and made the coverage
+worse.
+
+What I'd do: detect that a question is about a category rather than an instance,
+and retrieve per entity so all seven halls are represented, then let the model
+compare. That's a real feature, not a tuning change.
+
+Why I stopped: out of time for this unit, and honestly I'm not certain the fix
+belongs in retrieval. A question that needs all seven documents may just be a
+question this architecture shouldn't answer, and refusing it might be better
+than answering it from four.
 
 ## What I'd Do Differently
 
-<!-- Knowing what you know now — which of your five criteria would you write
-     differently, and why?
+The single thing I'd change is that **I'd write criteria that constrain the test
+set, not just the score.** All five of mine named a number and none of them
+named what the questions had to be like, so I picked five questions that each
+named their entity and had their answer in one document, and then measured 5/5
+on everything. The numbers were honest. They just described an easy exam.
 
-     Milestone 5. -->
+Concretely, three of the five:
+
+**Criterion 1** — I'd keep 4 of 5 and add the clause: *of which at least two
+require information from more than one document*. Same target, and I already
+know it would have failed.
+
+**Criterion 4** — "no chunk shorter than 50 characters" can no longer fail,
+because my chunker glues a title onto every chunk by construction. It did its
+job once, by ruling out the plain paragraph split that would have produced 88
+title-only chunks, but it has been unfalsifiable ever since. I'd replace it with
+something about whether a chunk is *usable* rather than long enough — for
+instance, that a sampled chunk names the building or course it's about, which is
+the property I actually care about.
+
+**Criterion 5** — "as judged by reading the answer against the question" has no
+procedure in it, and the person doing the reading wanted it to pass. I'd make it
+checkable: *the answer contains the `expects` phrase and names a document that
+phrase actually appears in.* That is stricter than what I wrote and can be run
+without a human deciding.
+
+The broader lesson is about where the difficulty in a criterion lives. I spent
+my effort on choosing the number — 4 of 5 rather than 5 of 5, 50 characters
+rather than 200 — when the number was never the part that made the test easy.
+The test set was.
