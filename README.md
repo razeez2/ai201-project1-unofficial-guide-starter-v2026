@@ -345,11 +345,11 @@ exists to catch.
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunks contain the answer, 4 of 5 | MET | Read all fifteen answers against the `expects` phrase I wrote in `questions.py` before I saw any results. The phrase was in the retrieved chunks every time — 5/5 on all three runs, so the target held rather than showing up occasionally. |
+| 2 | Every answer names a source, 5 of 5 | MET | All fifteen named at least one file. The format moved between runs — a `Source:` line, italics, a parenthesis — and I counted all three, because my criterion asks the answer to name a document, not to format it a particular way. |
+| 3 | Gate refuses out-of-corpus questions, 4 of 5 | MET | `gate.py::check` refused all five, and not narrowly: the closest was 0.787 against my 0.5 cutoff. One deterministic pass, so there is one number and it stands for all three runs. |
+| 4 | No chunk shorter than 50 characters | MET | `chunker.py::describe` reports the shortest of my 183 chunks at 63 characters. Measured on the index this run was served from, not a separate one. |
+| 5 | Answer addresses what was asked, 4 of 5 | MET | The closest call of the five, because it's a judgement rather than a count. I read each answer next to its question and asked whether it answered *that* question. The Kestrel one is the test case: the model was handed Halden Hall and Ridgeway Café chunks too and used neither. 5/5 on all three runs. |
 
 ## Diagnoses
 
@@ -370,6 +370,80 @@ exists to catch.
      low, and which one you'd tighten and to what.
 
      Milestone 3. -->
+
+I missed nothing. All five criteria came out MET on all three runs, and four of
+them came out at 5/5 against targets of 4 of 5.
+
+I don't think that means the system is good. I think my targets were set low,
+and I can say exactly how. **The weakness isn't in the numbers I picked — it's
+in the five questions I picked to measure them with.** Every one of my questions
+names the thing it's asking about ("Kestrel Commons", "Morrow House", "CS 210"),
+and every answer sits inside a single document. Those are the two easiest
+properties a question can have, and I gave all five of them to myself.
+
+Criterion 5 is the clearest case. I wrote it to catch answers about the wrong
+dining hall, which my corpus invites because eight halls are written to the same
+template with different numbers. It scored 5/5 — but it never got a real
+chance to fail, because every question already said which hall I meant. When I
+tried a question that doesn't:
+
+```
+How much is a wash and when should I go?
+  gate: PASS  best 0.483
+    0.483  housing_calder_annexe.txt
+    0.483  housing_fenwick_court.txt
+    0.497  housing_fenwick_court_laundry.txt
+    0.506  housing_old_brewhouse_laundry.txt
+    0.516  housing_aldridge_hall.txt
+```
+
+Three different buildings, all with different prices, handed to the model at
+once, and nothing to tell it which one I live in.
+
+**The pattern, and it's one problem rather than several: my system does lookups
+well and comparisons badly.** The stage is retrieval. `store.py::search` returns
+the `TOP_K = 5` nearest chunks, and no question that compares N things can be
+answered from a subset of those N things. Two examples, both of which pass the
+relevance gate, so the system has no idea anything is wrong:
+
+```
+Which dorm is the cheapest?
+  gate: PASS  best 0.497
+    0.497  housing_tamsin_court.txt
+    0.503  housing_innisfree_hall.txt
+    0.540  housing_old_brewhouse.txt
+    0.546  housing_aldridge_hall.txt
+    0.549  money_textbooks.txt
+```
+
+The right answer is Morrow House, which is the cheapest tier by about $900 a
+year. It is not in the retrieved set at all. The system would answer this
+confidently, cite a real file, and be wrong — which is the exact failure the
+relevance gate exists to prevent and cannot catch, because the gate only asks
+"is the nearest chunk close enough", never "is anything missing".
+
+```
+Which dining hall has the shortest wait at lunch?
+  gate: PASS  best 0.329
+    0.329  dining_pellew_dining_hall_followup.txt
+    0.337  dining_halden_hall_followup.txt
+    0.407  dining_north_kitchen_followup.txt
+    0.417  dining_the_ridgeway_cafe_followup.txt
+    0.432  dining_halden_hall.txt
+```
+
+Five chunks covering four of my eight dining halls. Answering this correctly
+means comparing all eight.
+
+**Which criterion I'd tighten, and to what.** Criterion 1. I'd keep the target
+at 4 of 5 and constrain the test set instead:
+
+> For at least 4 of my 5 test questions — **of which at least two require
+> information from more than one document** — the retrieved chunks include one
+> that contains the answer.
+
+Same number, genuinely harder, and I already know it would have failed: "which
+dorm is the cheapest?" needs all eight housing documents and gets four.
 
 ## The Improvement
 
