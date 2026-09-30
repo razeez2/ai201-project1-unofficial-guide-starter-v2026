@@ -66,6 +66,22 @@ real to latch onto and I expect it to be the one that gets through.
 <!-- What did your distances look like when you set the cutoff in Milestone 4?
      Was there a clean gap, or did the two groups overlap? -->
 
+> **Revised in unit 2:** Of five questions about my own campus that my documents
+> happen not to cover, the gate refuses at least 4.
+>
+> **Why revised:** The measurement was wrong, not the result. My five
+> out-of-scope questions were about Mongolia, diesel engines, the 1994 World
+> Cup, ibuprofen and Rust — nothing my corpus has any vocabulary for. They came
+> back between 0.787 and 0.923 against a 0.5 cutoff, so I was testing whether
+> the gate can reject another universe, which was never in doubt. What I
+> actually meant by "a question my documents clearly don't cover" is a
+> believable campus question I have no document for, and the gate does not stop
+> those. I have no bookstore document, and "What are the operating hours of the
+> campus bookstore?" passes at 0.341 — it retrieves `study_library_hours.txt`
+> and hands the model library opening times. The original target is still met on
+> the five it named, so this is not me lowering a number I missed; the new
+> version is harder and tests the thing I care about.
+
 ---
 
 ## 4. Something about your chunks

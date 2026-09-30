@@ -347,7 +347,7 @@ exists to catch.
 |---|---|---|---|
 | 1 | Retrieved chunks contain the answer, 4 of 5 | MET | Read all fifteen answers against the `expects` phrase I wrote in `questions.py` before I saw any results. The phrase was in the retrieved chunks every time — 5/5 on all three runs, so the target held rather than showing up occasionally. |
 | 2 | Every answer names a source, 5 of 5 | MET | All fifteen named at least one file. The format moved between runs — a `Source:` line, italics, a parenthesis — and I counted all three, because my criterion asks the answer to name a document, not to format it a particular way. |
-| 3 | Gate refuses out-of-corpus questions, 4 of 5 | MET | `gate.py::check` refused all five, and not narrowly: the closest was 0.787 against my 0.5 cutoff. One deterministic pass, so there is one number and it stands for all three runs. |
+| 3 | Gate refuses out-of-corpus questions, 4 of 5 | MET, but revised | `gate.py::check` refused all five, and not narrowly: the closest was 0.787 against my 0.5 cutoff. One deterministic pass, so there is one number and it stands for all three runs. Met on the five it named — but I've revised it in `criteria.md`, because those five tested the wrong thing. See below. |
 | 4 | No chunk shorter than 50 characters | MET | `chunker.py::describe` reports the shortest of my 183 chunks at 63 characters. Measured on the index this run was served from, not a separate one. |
 | 5 | Answer addresses what was asked, 4 of 5 | MET | The closest call of the five, because it's a judgement rather than a count. I read each answer next to its question and asked whether it answered *that* question. The Kestrel one is the test case: the model was handed Halden Hall and Ridgeway Café chunks too and used neither. 5/5 on all three runs. |
 
@@ -373,6 +373,34 @@ exists to catch.
 
 I missed nothing. All five criteria came out MET on all three runs, and four of
 them came out at 5/5 against targets of 4 of 5.
+
+**One criterion was broken rather than unmet, and I revised it.** Criterion 3
+says the gate should stop "a question my documents clearly don't cover." I
+measured that with Mongolia, diesel engines, the 1994 World Cup, ibuprofen and
+Rust, which came back at 0.787 to 0.923 against a 0.5 cutoff. That tests whether
+the gate can reject another universe. It does not test the case I care about — a
+believable campus question I simply have no document for — and the gate fails
+that one:
+
+```
+PASS   0.341  What are the operating hours of the campus bookstore?
+          nearest: study_library_hours.txt
+```
+
+I have no bookstore document. The gate passes the question anyway and hands the
+model library opening hours. The revision is in `criteria.md` underneath the
+original line: *of five questions about my own campus that my documents happen
+not to cover, the gate refuses at least 4.* That is harder than what I wrote
+first, not easier — the original target was met on the five questions it named,
+so this is a fix to the measurement rather than a retreat from a number I
+missed.
+
+I also argued the opposite verdict for the other four and couldn't make any of
+them stick. Two are worth recording because I checked them rather than assumed:
+every `expects` phrase was in a chunk that was actually retrieved, at rank 1 in
+all five cases — not merely in a file that was retrieved, which is all my
+evidence file lists. And none of the fifteen answers cited a document that
+wasn't in its retrieved set, so criterion 2 isn't passing on invented filenames.
 
 I don't think that means the system is good. I think my targets were set low,
 and I can say exactly how. **The weakness isn't in the numbers I picked — it's
